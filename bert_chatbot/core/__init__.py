@@ -1,1 +1,1 @@
-"""Core functionality for bert-chatbot.""" 
+"""Core functionality for bert-chatbot."""

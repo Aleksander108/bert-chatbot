@@ -11,6 +11,7 @@ TEST_QUESTIONS = [
 
 DEFAULT_QUESTION = "How are you?"
 
+
 # Utility functions for testing
 def get_expected_response(question: str) -> str:
     """Return the expected response for a test question."""

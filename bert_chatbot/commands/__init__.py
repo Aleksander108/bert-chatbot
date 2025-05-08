@@ -1,1 +1,1 @@
-"""Commands package for bert-chatbot.""" 
+"""Commands package for bert-chatbot."""

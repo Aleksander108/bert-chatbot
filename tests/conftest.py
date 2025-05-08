@@ -1,21 +1,19 @@
 """Test configuration and fixtures."""
 
-import io
 import os
 import tempfile
-from typing import Dict, Generator, List, Any
+from collections.abc import Generator
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 
 from bert_chatbot.core.chatbot import SemanticChatBot
 
 
 @pytest.fixture
-def sample_data() -> Dict[str, List[str]]:
+def sample_data() -> dict[str, list[str]]:
     """Create sample data for testing."""
     return {
         "вопрос": ["How are you?", "What is your name?", "What is the weather like today?"],
@@ -24,15 +22,15 @@ def sample_data() -> Dict[str, List[str]]:
 
 
 @pytest.fixture
-def sample_database_path(sample_data: Dict[str, List[str]]) -> Generator[str, None, None]:
+def sample_database_path(sample_data: dict[str, list[str]]) -> Generator[str]:
     """Create a temporary sample database for testing."""
     # Create a temporary Excel file with sample data
     with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as temp_file:
         temp_path = temp_file.name
-        
+
     # Write to Excel file
     pd.DataFrame(sample_data).to_excel(temp_path, index=False)
-    
+
     try:
         yield temp_path
     finally:
@@ -61,14 +59,15 @@ def mock_cosine_similarity() -> MagicMock:
 
 
 @pytest.fixture
-def sample_chatbot(sample_database_path: str, mock_vectorizer: MagicMock, mock_cosine_similarity: MagicMock) -> SemanticChatBot:
+def sample_chatbot(
+    sample_database_path: str, mock_vectorizer: MagicMock, mock_cosine_similarity: MagicMock
+) -> SemanticChatBot:
     """Create a sample chatbot instance for testing with mocked components."""
     with patch("bert_chatbot.core.chatbot.TfidfVectorizer", return_value=mock_vectorizer):
         with patch("bert_chatbot.core.chatbot.cosine_similarity", mock_cosine_similarity):
             with patch("bert_chatbot.core.chatbot.pickle.dump"):  # Mock pickle to avoid writing to disk
-                chatbot = SemanticChatBot(
+                return SemanticChatBot(
                     database_path=sample_database_path,
                     similarity_threshold=0.3,
                     cache_file=":memory:",  # In-memory cache for tests
                 )
-                return chatbot

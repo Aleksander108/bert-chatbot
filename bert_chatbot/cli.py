@@ -13,4 +13,4 @@ app = typer.Typer(
 app.add_typer(chat_cmd.app, name="chat", help="Interactive chat with the semantic chatbot.")
 
 if __name__ == "__main__":
-    app() 
+    app()

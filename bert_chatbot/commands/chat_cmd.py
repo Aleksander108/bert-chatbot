@@ -21,61 +21,58 @@ def interactive(
     cache_file: CacheFile = "vector_cache.pkl",
 ) -> None:
     """Start an interactive chat session with the semantic chatbot.
-    
+
     You can ask questions and get answers based on semantic similarity.
     Type 'exit', 'quit', or 'q' to end the chat.
     Type 'debug' to toggle debug mode which shows similarity scores.
     """
     console.print(Panel.fit("BERT Semantic ChatBot", title="Welcome"))
     console.print("[bold]Loading database and preparing vectors...[/bold]")
-    
+
     # Initialize the chatbot
     chatbot = SemanticChatBot(database, similarity_threshold, cache_file)
     debug_mode = False
-    
+
     console.print("[green]Ready! Type your questions or 'exit' to quit.[/green]")
-    
+
     # Main interaction loop
     while True:
         # Get user input
         query = console.input("\n[bold blue]You:[/bold blue] ")
-        
+
         # Check for exit commands
         if query.lower() in ("exit", "quit", "q"):
             console.print("[bold]Thank you for using BERT Semantic ChatBot![/bold]")
             break
-        
+
         # Check for debug toggle
         if query.lower() == "debug":
             debug_mode = not debug_mode
             console.print(f"[yellow]Debug mode {'enabled' if debug_mode else 'disabled'}[/yellow]")
             continue
-        
+
         # Skip empty queries
         if not query.strip():
             continue
-        
+
         # Get response from chatbot
         response = chatbot.find_answer(query)
-        
+
         # Show debug information if enabled
         if debug_mode:
             matched = f"[bold]Matched question:[/bold] {response['matched_question']}"
             similarity = f"[bold]Similarity score:[/bold] {response['similarity']:.4f}"
             threshold = f"[bold]Threshold:[/bold] {similarity_threshold}"
-            
+
             debug_panel = Panel.fit(
                 f"{matched}\n{similarity}\n{threshold}",
                 title="Debug Info",
                 border_style="yellow",
             )
             console.print(debug_panel)
-        
+
         # Style the answer based on whether it's above threshold
-        if response["above_threshold"]:
-            style = "green"
-        else:
-            style = "red"
-        
+        style = "green" if response["above_threshold"] else "red"
+
         # Print the answer
-        console.print(f"\n[bold {style}]Bot:[/bold {style}] {response['answer']}") 
+        console.print(f"\n[bold {style}]Bot:[/bold {style}] {response['answer']}")
