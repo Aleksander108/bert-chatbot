@@ -60,7 +60,7 @@ def test_interactive_chat_with_env_var(
 ) -> None:
     """Test chat command using database path from environment variable."""
     test_db_path = "/path/from/env/database.xlsx"
-    
+
     # Set the environment variable
     with patch.dict(os.environ, {"BERT_CHATBOT_DATABASE": test_db_path}, clear=True):
         # Call the function without providing a database path

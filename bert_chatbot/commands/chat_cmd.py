@@ -1,6 +1,8 @@
 """Implementation of the chat command."""
 
 import os
+from typing import Annotated
+
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -14,12 +16,17 @@ app = typer.Typer(
 )
 console = Console()
 
+NoCacheOption = Annotated[
+    bool, typer.Option("--no-cache", help="Skip loading from cache, generate vectors from scratch")
+]
+
 
 @app.command()
 def interactive(
     database: DatabasePath = None,  # None will use env var via get_database_from_env
     similarity_threshold: SimilarityThreshold = 0.3,
     cache_file: CacheFile = "vector_cache.pkl",
+    no_cache: NoCacheOption = False,
 ) -> None:
     """Start an interactive chat session with the semantic chatbot.
 
@@ -34,13 +41,24 @@ def interactive(
     if database is None:
         database = get_database_from_env()
         if database is None:
-            console.print("[bold red]Error: No database path provided and BERT_CHATBOT_DATABASE environment variable not set.[/bold red]")
+            console.print(
+                "[bold red]Error: No database path provided and BERT_CHATBOT_DATABASE "
+                "environment variable not set.[/bold red]"
+            )
             raise typer.Exit(1)
-    
+
     # Validate that the database file exists
     if not os.path.exists(database):
         console.print(f"[bold red]Error: Database file '{database}' does not exist.[/bold red]")
         raise typer.Exit(1)
+
+    # If no_cache is True, remove the cache file if it exists
+    if no_cache and os.path.exists(cache_file):
+        try:
+            os.remove(cache_file)
+            console.print(f"[yellow]Cache file '{cache_file}' removed as requested.[/yellow]")
+        except Exception as e:
+            console.print(f"[yellow]Warning: Could not remove cache file: {e}[/yellow]")
 
     # Initialize the chatbot
     chatbot = SemanticChatBot(database, similarity_threshold, cache_file)
@@ -76,19 +94,22 @@ def interactive(
             matched = f"[bold]Matched question:[/bold] {response['matched_question']}"
             similarity = f"[bold]Similarity score:[/bold] {response['similarity']:.4f}"
             threshold = f"[bold]Threshold:[/bold] {similarity_threshold}"
-            
+
             debug_panel = Panel.fit(
                 f"{matched}\n{similarity}\n{threshold}",
                 title="Debug Info",
                 border_style="yellow",
             )
             console.print(debug_panel)
-            
+
         # Print the answer
         if response["above_threshold"]:
             console.print(f"\n[bold green]Bot:[/bold green] {response['answer']}")
         else:
             console.print(f"\n[bold red]Bot:[/bold red] {response['answer']}")
+
+
+DebugOption = Annotated[bool, typer.Option("--debug", help="Show debug information")]
 
 
 @app.command()
@@ -97,10 +118,11 @@ def ask(
     question: str = typer.Argument(..., help="Question to ask the chatbot"),
     similarity_threshold: SimilarityThreshold = 0.3,
     cache_file: CacheFile = "vector_cache.pkl",
-    debug: bool = typer.Option(False, "--debug", help="Show debug information"),
+    debug: DebugOption = False,
+    no_cache: NoCacheOption = False,
 ) -> None:
     """Ask a single question to the chatbot and get an answer.
-    
+
     The chatbot will find the most semantically similar question in the database
     and return the corresponding answer.
     """
@@ -110,17 +132,28 @@ def ask(
     if database is None:
         database = get_database_from_env()
         if database is None:
-            console.print("[bold red]Error: No database path provided and BERT_CHATBOT_DATABASE environment variable not set.[/bold red]")
+            console.print(
+                "[bold red]Error: No database path provided and BERT_CHATBOT_DATABASE "
+                "environment variable not set.[/bold red]"
+            )
             raise typer.Exit(1)
-    
+
     # Validate that the database file exists
     if not os.path.exists(database):
         console.print(f"[bold red]Error: Database file '{database}' does not exist.[/bold red]")
         raise typer.Exit(1)
 
+    # If no_cache is True, remove the cache file if it exists
+    if no_cache and os.path.exists(cache_file):
+        try:
+            os.remove(cache_file)
+            console.print(f"[yellow]Cache file '{cache_file}' removed as requested.[/yellow]")
+        except Exception as e:
+            console.print(f"[yellow]Warning: Could not remove cache file: {e}[/yellow]")
+
     # Initialize the chatbot
     chatbot = SemanticChatBot(database, similarity_threshold, cache_file)
-    
+
     # Get response from chatbot
     response = chatbot.find_answer(question)
 

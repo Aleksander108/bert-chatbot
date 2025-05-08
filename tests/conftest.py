@@ -1,8 +1,8 @@
 """Test configuration and fixtures."""
 
-import os
 import tempfile
 from collections.abc import Generator
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -29,14 +29,15 @@ def sample_database_path(sample_data: dict[str, list[str]]) -> Generator[str]:
         temp_path = temp_file.name
 
     # Write to Excel file
-    pd.DataFrame(sample_data).to_excel(temp_path, index=False)
+    pd.DataFrame(sample_data).to_excel(temp_path, index=False)  # type: ignore
 
     try:
         yield temp_path
     finally:
         # Clean up the temporary file
-        if os.path.exists(temp_path):
-            os.unlink(temp_path)
+        temp_file_path = Path(temp_path)
+        if temp_file_path.exists():
+            temp_file_path.unlink()
 
 
 @pytest.fixture
@@ -63,11 +64,13 @@ def sample_chatbot(
     sample_database_path: str, mock_vectorizer: MagicMock, mock_cosine_similarity: MagicMock
 ) -> SemanticChatBot:
     """Create a sample chatbot instance for testing with mocked components."""
-    with patch("bert_chatbot.core.chatbot.TfidfVectorizer", return_value=mock_vectorizer):
-        with patch("bert_chatbot.core.chatbot.cosine_similarity", mock_cosine_similarity):
-            with patch("bert_chatbot.core.chatbot.pickle.dump"):  # Mock pickle to avoid writing to disk
-                return SemanticChatBot(
-                    database_path=sample_database_path,
-                    similarity_threshold=0.3,
-                    cache_file=":memory:",  # In-memory cache for tests
-                )
+    with (
+        patch("bert_chatbot.core.chatbot.TfidfVectorizer", return_value=mock_vectorizer),
+        patch("bert_chatbot.core.chatbot.cosine_similarity", mock_cosine_similarity),
+        patch("bert_chatbot.core.chatbot.pickle.dump"),
+    ):  # Mock pickle to avoid writing to disk
+        return SemanticChatBot(
+            database_path=sample_database_path,
+            similarity_threshold=0.3,
+            cache_file=":memory:",  # In-memory cache for tests
+        )

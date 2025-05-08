@@ -1,14 +1,17 @@
 """Core implementation of the semantic chatbot."""
 
-import os
 import pickle
-from typing import Any, Dict, List
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from scipy.sparse import spmatrix
+
+if TYPE_CHECKING:
+    import numpy.typing as npt
+    from scipy.sparse import csr_matrix, spmatrix
 
 
 class SemanticChatBot:
@@ -32,73 +35,101 @@ class SemanticChatBot:
         self.similarity_threshold = similarity_threshold
         self.cache_file = cache_file
         self.vectorizer = TfidfVectorizer()
+
+        # These will be set in _load_or_generate_vectors
         self.question_vectors: spmatrix
 
         # Load database and prepare vectors
         self.df = pd.read_excel(database_path)
-        self.questions: List[str] = self.df["Вопрос"].tolist()
-        self.answers: List[str] = self.df["Ответ"].tolist()
+
+        # Handle both uppercase and lowercase column names
+        question_col = self._get_column_case_insensitive("вопрос")
+        answer_col = self._get_column_case_insensitive("ответ")
+
+        self.questions: list[str] = self.df[question_col].tolist()
+        self.answers: list[str] = self.df[answer_col].tolist()
 
         # Load or generate vectors
         self._load_or_generate_vectors()
 
+    def _get_column_case_insensitive(self, column_name: str) -> str:
+        """Get the actual column name regardless of case.
+
+        Args:
+            column_name: The column name to find (case-insensitive)
+
+        Returns:
+            The actual column name in the dataframe
+
+        Raises:
+            KeyError: If no matching column is found
+
+        """
+        for col in self.df.columns:
+            if col.lower() == column_name.lower():
+                return col
+        msg = f"Column '{column_name}' not found (case-insensitive)"
+        raise KeyError(msg)
+
     def _load_or_generate_vectors(self) -> None:
         """Load cached vectors and vectorizer if available and valid, otherwise generate new ones."""
         # Check if cached vectors exist and are newer than database
-        if os.path.exists(self.cache_file) and os.path.getmtime(self.cache_file) > os.path.getmtime(self.database_path):
+        cache_path = Path(self.cache_file)
+        db_path = Path(self.database_path)
+
+        if cache_path.exists() and cache_path.stat().st_mtime > db_path.stat().st_mtime:
             try:
-                with open(self.cache_file, "rb") as f:
-                    cache_data: Dict[str, Any] = pickle.load(f)
+                with cache_path.open("rb") as f:
+                    # Note: Only load pickles from trusted sources
+                    cache_data: dict[str, Any] = pickle.load(f)
 
                 # Verify cached questions match current questions
                 if cache_data["questions"] == self.questions:
-                    self.question_vectors = cache_data["vectors"]
-                    self.vectorizer = cache_data["vectorizer"]
+                    self.question_vectors = cast("spmatrix", cache_data["vectors"])
+                    self.vectorizer = cast("TfidfVectorizer", cache_data["vectorizer"])
                     return
-            except (pickle.UnpicklingError, KeyError):
-                # If cache is invalid, regenerate vectors
+            except Exception:
+                # If cache is invalid or any error occurs, regenerate vectors
                 pass
 
         # Generate new vectors
-        self.question_vectors = self.vectorizer.fit_transform(self.questions)
+        self.question_vectors = cast("spmatrix", self.vectorizer.fit_transform(self.questions))
 
         # Cache the vectors and vectorizer
-        cache_data: Dict[str, Any] = {
-            "questions": self.questions, 
+        cache_data: dict[str, Any] = {
+            "questions": self.questions,
             "vectors": self.question_vectors,
-            "vectorizer": self.vectorizer
+            "vectorizer": self.vectorizer,
         }
-        with open(self.cache_file, "wb") as f:
+        with Path(self.cache_file).open("wb") as f:
             pickle.dump(cache_data, f)
 
-    def find_answer(self, query: str, debug: bool = False) -> Dict[str, Any]:
+    def find_answer(self, query: str) -> dict[str, Any]:
         """Find the most similar question and its answer.
 
         Args:
             query: The user question to find a match for
-            debug: Whether to include debug information in the response
 
         Returns:
             Dictionary with the answer, similarity score, and matched question
 
         """
         # Vectorize the query
-        query_vector = self.vectorizer.transform([query])
+        query_vector = cast("csr_matrix", self.vectorizer.transform([query]))
 
         # Calculate similarity with all questions
-        similarities = cosine_similarity(query_vector, self.question_vectors).flatten()
+        similarities = cast("npt.NDArray[np.float64]", cosine_similarity(query_vector, self.question_vectors).flatten())
 
         # Find the most similar question
         max_sim_idx = np.argmax(similarities)
-        max_similarity = similarities[max_sim_idx]
+        max_similarity = float(similarities[max_sim_idx])
 
         # Prepare the response
         return {
             "answer": self.answers[max_sim_idx]
             if max_similarity >= self.similarity_threshold
             else "Sorry, I couldn't find a relevant answer.",
-            "similarity": float(max_similarity),
+            "similarity": max_similarity,
             "matched_question": self.questions[max_sim_idx],
             "above_threshold": max_similarity >= self.similarity_threshold,
         }
-

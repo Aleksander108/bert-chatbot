@@ -1,18 +1,21 @@
 """Common CLI utilities and argument types."""
 
 import os
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
-def get_database_from_env() -> Optional[str]:
+
+def get_database_from_env() -> str | None:
     """Get database path from environment variable if it exists."""
     return os.environ.get("BERT_CHATBOT_DATABASE")
 
+
 DatabasePath = Annotated[
-    Optional[str],
+    str | None,
     typer.Argument(
-        help="Path to the Excel database file with questions and answers. Can also be set via BERT_CHATBOT_DATABASE environment variable.",
+        help="Path to the Excel database file with questions and answers. "
+        "Can also be set via BERT_CHATBOT_DATABASE environment variable.",
         exists=False,  # We'll check existence manually
         dir_okay=False,
         readable=True,

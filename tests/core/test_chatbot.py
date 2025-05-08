@@ -1,7 +1,7 @@
 """Tests for the SemanticChatBot class."""
 
-import os
 import pickle
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -21,7 +21,7 @@ def test_chatbot_initialization(sample_database_path: str) -> None:
 
 
 @patch("bert_chatbot.core.chatbot.cosine_similarity")
-def test_find_answer_exact_match(mock_cosine_similarity, sample_chatbot: SemanticChatBot) -> None:
+def test_find_answer_exact_match(mock_cosine_similarity: MagicMock, sample_chatbot: SemanticChatBot) -> None:
     """Test finding an answer for an exact match."""
     # Configure the mock to return high similarity for the first question
     similarities = np.array([[0.95, 0.5, 0.3]])
@@ -36,7 +36,7 @@ def test_find_answer_exact_match(mock_cosine_similarity, sample_chatbot: Semanti
 
 
 @patch("bert_chatbot.core.chatbot.cosine_similarity")
-def test_find_answer_similar_match(mock_cosine_similarity, sample_chatbot: SemanticChatBot) -> None:
+def test_find_answer_similar_match(mock_cosine_similarity: MagicMock, sample_chatbot: SemanticChatBot) -> None:
     """Test finding an answer for a similar but not exact query."""
     # Configure the mock to return medium similarity for the first question
     similarities = np.array([[0.6, 0.3, 0.2]])
@@ -52,7 +52,7 @@ def test_find_answer_similar_match(mock_cosine_similarity, sample_chatbot: Seman
 
 
 @patch("bert_chatbot.core.chatbot.cosine_similarity")
-def test_find_answer_no_match(mock_cosine_similarity, sample_chatbot: SemanticChatBot) -> None:
+def test_find_answer_no_match(mock_cosine_similarity: MagicMock, sample_chatbot: SemanticChatBot) -> None:
     """Test behavior when no good match is found."""
     # Set a high threshold to force no matches
     sample_chatbot.similarity_threshold = 0.95
@@ -84,19 +84,35 @@ def test_loading_cached_vectors(sample_database_path: str) -> None:
     cache_file = "test_cache_load.pkl"
     mock_questions = ["How are you?", "What is your name?", "What is the weather like today?"]
     mock_vectors = "mock_vectors"
-    cache_data = {"questions": mock_questions, "vectors": mock_vectors}
+    mock_vectorizer = "mock_vectorizer_instance"  # Use string instead of MagicMock
+    cache_data = {
+        "questions": mock_questions,
+        "vectors": mock_vectors,
+        "vectorizer": mock_vectorizer,  # Add vectorizer to cache data
+    }
 
-    with open(cache_file, "wb") as f:
+    cache_path = Path(cache_file)
+    with cache_path.open("wb") as f:
         pickle.dump(cache_data, f)
 
     # Ensure the cache file is newer than the database
-    os.utime(cache_file, (os.path.getmtime(sample_database_path) + 10, os.path.getmtime(sample_database_path) + 10))
+    db_path = Path(sample_database_path)
+    # Use os.utime with the modified times
+    new_mtime = db_path.stat().st_mtime + 10
+    cache_path.touch(exist_ok=True)
+    # Note: We still need to use os.utime here as Path doesn't have a direct equivalent
+    import os
+
+    os.utime(cache_file, (new_mtime, new_mtime))
 
     # Create a mock vectorizer
     mock_vectorizer = MagicMock()
 
     # Create a chatbot with patched components
-    with patch("bert_chatbot.core.chatbot.TfidfVectorizer", return_value=mock_vectorizer):
+    with (
+        patch("bert_chatbot.core.chatbot.TfidfVectorizer", return_value=mock_vectorizer),
+        patch("bert_chatbot.core.chatbot.pickle.dump"),
+    ):  # Patch pickle.dump to prevent pickling MagicMock
         chatbot = SemanticChatBot(sample_database_path, cache_file=cache_file)
 
         # Check that vectors were loaded from cache
@@ -106,5 +122,5 @@ def test_loading_cached_vectors(sample_database_path: str) -> None:
         mock_vectorizer.fit_transform.assert_not_called()
 
     # Clean up
-    if os.path.exists(cache_file):
-        os.unlink(cache_file)
+    if cache_path.exists():
+        cache_path.unlink()

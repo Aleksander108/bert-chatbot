@@ -15,6 +15,7 @@ dist/*.whl
 
 # Test reports and coverage
 .coverage
-report.xml
-coverage.xml
-code-quality-report.json
+
+# Vector database
+vector_cache.pkl
+
