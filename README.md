@@ -7,6 +7,7 @@ A semantic chatbot that provides answers to user queries by finding the most sem
 - Semantic matching using TF-IDF vectorization
 - Caching system for faster subsequent runs
 - Interactive command-line interface
+- Single question mode via command line
 - Debug mode to show similarity scores and matched questions
 - Configurable similarity threshold
 
@@ -42,9 +43,30 @@ bert-chatbot chat interactive path/to/database.xlsx --threshold 0.4
 
 # With custom cache file
 bert-chatbot chat interactive path/to/database.xlsx --cache-file my_cache.pkl
+
+# Using environment variable for database path (instead of command line argument)
+export BERT_CHATBOT_DATABASE=/path/to/database.xlsx
+bert-chatbot chat interactive
 ```
 
-### Commands
+### Single Question Mode
+
+```bash
+# Ask a single question directly from the command line
+bert-chatbot chat ask path/to/database.xlsx "What is the capital of France?"
+
+# With debug information
+bert-chatbot chat ask path/to/database.xlsx "What is the capital of France?" --debug
+
+# With custom similarity threshold
+bert-chatbot chat ask path/to/database.xlsx "What is the capital of France?" --threshold 0.4
+
+# Using environment variable for database path
+export BERT_CHATBOT_DATABASE=/path/to/database.xlsx
+bert-chatbot chat ask "What is the capital of France?"
+```
+
+### Commands in Interactive Mode
 
 Once in the interactive chat, you can use these commands:
 - Type any question to get an answer

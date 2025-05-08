@@ -2,12 +2,13 @@
 
 import os
 import pickle
-from typing import Any
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from scipy.sparse import spmatrix
 
 
 class SemanticChatBot:
@@ -31,46 +32,46 @@ class SemanticChatBot:
         self.similarity_threshold = similarity_threshold
         self.cache_file = cache_file
         self.vectorizer = TfidfVectorizer()
+        self.question_vectors: spmatrix
 
         # Load database and prepare vectors
         self.df = pd.read_excel(database_path)
-        self.questions = self.df["вопрос"].tolist()
-        self.answers = self.df["ответ"].tolist()
+        self.questions: List[str] = self.df["Вопрос"].tolist()
+        self.answers: List[str] = self.df["Ответ"].tolist()
 
         # Load or generate vectors
-        self.question_vectors = self._load_or_generate_vectors()
+        self._load_or_generate_vectors()
 
-    def _load_or_generate_vectors(self) -> Any:
-        """Load cached vectors if available and valid, otherwise generate new ones.
-
-        Returns:
-            The TF-IDF vectors for all questions in the database
-
-        """
+    def _load_or_generate_vectors(self) -> None:
+        """Load cached vectors and vectorizer if available and valid, otherwise generate new ones."""
         # Check if cached vectors exist and are newer than database
         if os.path.exists(self.cache_file) and os.path.getmtime(self.cache_file) > os.path.getmtime(self.database_path):
             try:
                 with open(self.cache_file, "rb") as f:
-                    cache_data = pickle.load(f)
+                    cache_data: Dict[str, Any] = pickle.load(f)
 
                 # Verify cached questions match current questions
                 if cache_data["questions"] == self.questions:
-                    return cache_data["vectors"]
+                    self.question_vectors = cache_data["vectors"]
+                    self.vectorizer = cache_data["vectorizer"]
+                    return
             except (pickle.UnpicklingError, KeyError):
                 # If cache is invalid, regenerate vectors
                 pass
 
         # Generate new vectors
-        vectors = self.vectorizer.fit_transform(self.questions)
+        self.question_vectors = self.vectorizer.fit_transform(self.questions)
 
-        # Cache the vectors
-        cache_data = {"questions": self.questions, "vectors": vectors}
+        # Cache the vectors and vectorizer
+        cache_data: Dict[str, Any] = {
+            "questions": self.questions, 
+            "vectors": self.question_vectors,
+            "vectorizer": self.vectorizer
+        }
         with open(self.cache_file, "wb") as f:
             pickle.dump(cache_data, f)
 
-        return vectors
-
-    def find_answer(self, query: str, debug: bool = False) -> dict[str, Any]:
+    def find_answer(self, query: str, debug: bool = False) -> Dict[str, Any]:
         """Find the most similar question and its answer.
 
         Args:

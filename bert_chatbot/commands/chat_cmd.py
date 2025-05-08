@@ -1,10 +1,11 @@
 """Implementation of the chat command."""
 
+import os
 import typer
 from rich.console import Console
 from rich.panel import Panel
 
-from bert_chatbot.commands.common import CacheFile, DatabasePath, SimilarityThreshold
+from bert_chatbot.commands.common import CacheFile, DatabasePath, SimilarityThreshold, get_database_from_env
 from bert_chatbot.core.chatbot import SemanticChatBot
 
 app = typer.Typer(
@@ -16,7 +17,7 @@ console = Console()
 
 @app.command()
 def interactive(
-    database: DatabasePath,
+    database: DatabasePath = None,  # None will use env var via get_database_from_env
     similarity_threshold: SimilarityThreshold = 0.3,
     cache_file: CacheFile = "vector_cache.pkl",
 ) -> None:
@@ -28,6 +29,18 @@ def interactive(
     """
     console.print(Panel.fit("BERT Semantic ChatBot", title="Welcome"))
     console.print("[bold]Loading database and preparing vectors...[/bold]")
+
+    # If database is None, try to get it from environment variable
+    if database is None:
+        database = get_database_from_env()
+        if database is None:
+            console.print("[bold red]Error: No database path provided and BERT_CHATBOT_DATABASE environment variable not set.[/bold red]")
+            raise typer.Exit(1)
+    
+    # Validate that the database file exists
+    if not os.path.exists(database):
+        console.print(f"[bold red]Error: Database file '{database}' does not exist.[/bold red]")
+        raise typer.Exit(1)
 
     # Initialize the chatbot
     chatbot = SemanticChatBot(database, similarity_threshold, cache_file)
@@ -63,16 +76,65 @@ def interactive(
             matched = f"[bold]Matched question:[/bold] {response['matched_question']}"
             similarity = f"[bold]Similarity score:[/bold] {response['similarity']:.4f}"
             threshold = f"[bold]Threshold:[/bold] {similarity_threshold}"
-
+            
             debug_panel = Panel.fit(
                 f"{matched}\n{similarity}\n{threshold}",
                 title="Debug Info",
                 border_style="yellow",
             )
             console.print(debug_panel)
-
-        # Style the answer based on whether it's above threshold
-        style = "green" if response["above_threshold"] else "red"
-
+            
         # Print the answer
-        console.print(f"\n[bold {style}]Bot:[/bold {style}] {response['answer']}")
+        if response["above_threshold"]:
+            console.print(f"\n[bold green]Bot:[/bold green] {response['answer']}")
+        else:
+            console.print(f"\n[bold red]Bot:[/bold red] {response['answer']}")
+
+
+@app.command()
+def ask(
+    database: DatabasePath = None,  # None will use env var via get_database_from_env
+    question: str = typer.Argument(..., help="Question to ask the chatbot"),
+    similarity_threshold: SimilarityThreshold = 0.3,
+    cache_file: CacheFile = "vector_cache.pkl",
+    debug: bool = typer.Option(False, "--debug", help="Show debug information"),
+) -> None:
+    """Ask a single question to the chatbot and get an answer.
+    
+    The chatbot will find the most semantically similar question in the database
+    and return the corresponding answer.
+    """
+    console.print("[bold]Loading database and preparing vectors...[/bold]")
+
+    # If database is None, try to get it from environment variable
+    if database is None:
+        database = get_database_from_env()
+        if database is None:
+            console.print("[bold red]Error: No database path provided and BERT_CHATBOT_DATABASE environment variable not set.[/bold red]")
+            raise typer.Exit(1)
+    
+    # Validate that the database file exists
+    if not os.path.exists(database):
+        console.print(f"[bold red]Error: Database file '{database}' does not exist.[/bold red]")
+        raise typer.Exit(1)
+
+    # Initialize the chatbot
+    chatbot = SemanticChatBot(database, similarity_threshold, cache_file)
+    
+    # Get response from chatbot
+    response = chatbot.find_answer(question)
+
+    # Show debug information if enabled
+    if debug:
+        matched = f"[bold]Matched question:[/bold] {response['matched_question']}"
+        similarity = f"[bold]Similarity score:[/bold] {response['similarity']:.4f}"
+        threshold = f"[bold]Threshold:[/bold] {similarity_threshold}"
+        console.print(f"[yellow]{matched}[/yellow]")
+        console.print(f"[yellow]{similarity}[/yellow]")
+        console.print(f"[yellow]{threshold}[/yellow]")
+
+    # Print the answer
+    if response["above_threshold"]:
+        console.print(f"[bold green]Answer:[/bold green] {response['answer']}")
+    else:
+        console.print(f"[bold red]Answer:[/bold red] {response['answer']}")
