@@ -1,0 +1,90 @@
+[project]
+name = "bert-chatbot"
+description = "A semantic chatbot that provides answers to user queries by finding the most semantically similar questions in an Excel database."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+  "rich>=14.0.0",
+  "structlog>=21.1.0",
+  "typer>=0.12.0",
+  "pandas>=2.0.0",
+  "scikit-learn>=1.3.0",
+  "numpy>=1.24.0",
+  "openpyxl>=3.1.0",
+]
+version = "0.0.0-0"
+
+[project.scripts]
+bert-chatbot = "bert_chatbot.cli:app"
+
+[dependency-groups]
+dev = [
+  "auto-typing-final>=0.7.0",
+  "hatchling>=0.23.0",
+  "pyright[nodejs]>=1.1.364",
+  "pytest-cov>=4.0.0",
+  "pytest-socket>=0.3.2",
+  "pytest-timeout>=2.1.0",
+  "pytest>=6.0.0",
+  "ruff>=0.2.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.coverage.report]
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "if __name__ == .__main__.:",
+  'class .*\bProtocol\):',
+]
+
+[tool.coverage.run]
+omit = ["tests/*"]
+
+[tool.hatch.build]
+packages = ["bert_chatbot"]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+
+[[tool.pyright.executionEnvironments]]
+root = "tests"
+extraPaths = ["."]
+reportPrivateUsage = false
+
+[tool.pytest.ini_options]
+addopts = "--cov=. --cov-report=term-missing:skip-covered --disable-socket"
+timeout = 10
+
+[tool.ruff]
+line-length = 120
+fix = true
+unsafe-fixes = true
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  # Conflicting with formatter: https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+  "COM812",  # incorrect-line-break-after-operator
+  "D203",  # incorrect-blank-line-before-class
+  "D213",  # multi-line-summary-second-line
+]
+unfixable = [
+  "T201",  # print
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/**/*.py" = [
+  # Impractical for tests
+  "ARG001",  # Unused function argument
+  "PLR2004",  # Magic value used in comparison
+  "S101",  # Use of `assert` detected
+  "S105",  # Possible hardcoded password assigned
+  "S106",  # Possible hardcoded password assigned to argument
+  "SLF001",  # private-member-access
+]

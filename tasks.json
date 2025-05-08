@@ -1,0 +1,47 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Install dependencies",
+            "command": "uv",
+            "args": [
+                "sync"
+            ]
+        },
+        {
+            "label": "Upgrade dependencies (lock file)",
+            "command": "uv",
+            "args": [
+                "lock",
+                "--upgrade"
+            ]
+        },
+        {
+            "label": "Run all tests",
+            "command": "pytest",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Format",
+            "command": "ruff",
+            "args": [
+                "format"
+            ]
+        },
+        {
+            "label": "Lint",
+            "command": "ruff",
+            "args": [
+                "check",
+                "--fix"
+            ]
+        },
+        {
+            "label": "Type check",
+            "command": "pyright"
+        }
+    ]
+}

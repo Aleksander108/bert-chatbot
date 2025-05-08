@@ -1,0 +1,57 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Project Rules
+
+## 1. Project Details & Maintenance
+- **Project Overview Location**: The `.cursor/rules/project-info.mdc` file contains the comprehensive overview of the project structure, architecture, and purpose. This is the definitive reference for understanding the codebase organization.
+- **Living Documentation**: The project-info document is a living resource that should evolve with the codebase. As the project changes, this document must be updated to reflect the current state of modules, features, and architecture.
+- **Documentation Structure**: When updating documentation, integrate new information into the appropriate existing sections rather than appending at the end. Documentation should reflect logical relationships between concepts rather than chronological order of when they were added.
+
+## 2. Collaboration & Communication
+- **Clarify Ambiguity**: Ask specific questions if requirements are unclear or insufficient.
+- **Verify Understanding**: Summarize complex tasks before implementation to confirm alignment.
+- **Offer Alternatives**: Critically evaluate requests; suggest better approaches if applicable, rather than implementing "blindly".
+
+## 3. Development Principles
+- **Keep It Simple (KISS)**: Prefer straightforward solutions.
+- **Don't Repeat Yourself (DRY)**: Avoid code duplication.
+- **Structure Code Logically**: Place code into appropriate files/modules. Separate distinct concerns (e.g., keep core logic separate from CLI/UI).
+- **Forward-Thinking**: Design with future needs in mind where practical.
+- **Refactor Fearlessly (No Backward Compatibility)**: This is an internal project. Remove obsolete code/APIs and freely modify function/method signatures during refactoring without maintaining compatibility. Assume git history tracks changes.
+- **Use Rich for Output**: Always use Rich Console for terminal output instead of built-in print(). This ensures consistent styling and better user experience.
+
+## 4. Code Style & Formatting
+- **Concise Comments**: Comments should explain non-trivial logic or intent rather than describing what the code does.
+  - Focus on explaining why something is done a particular way, not what is being done
+  - Use comments sparingly and only when necessary
+  - Avoid content that adds no value:
+    - Avoid comments that merely restate the code (e.g., "Assigning x", "Calling function")
+    - Avoid comments that describe implementation details or edits (e.g., "Fixed bug", "Direct reference to parameter")
+  - Follow consistent formatting:
+    - Omit trailing periods for single-sentence comments
+    - Use two spaces before inline comments
+    - Avoid `---` style separators
+- **Static Typing**: Add type hints for all new code. Avoid using `Any`.
+- **Line Length**: Keep lines under 120 characters.
+- **No Shebang**: Do not add `#!/usr/bin/env python` lines to Python files.
+- **Auto-formatting Awareness**: Be aware that `ruff format` might adjust code upon saving.
+- **Linter Conformance**: Adhere to PEP 8, PEP 257, and other standard Python style guides enforced by `ruff`.
+
+## 5. Testing & Quality Assurance
+- **Priority 1: Test Execution & Coverage**:
+  - Ensure all tests pass (`pytest -q --no-cov`). This is the highest priority.
+  - All new functionality must be covered by unit tests.
+  - Strive for 100% test coverage.
+- **Priority 2: Type Checking**: Ensure code passes `pyright` checks.
+- **Priority 3: Linting**: Resolve all `ruff check --no-fix --quiet` errors.
+- **Priority 4: Formatting**: Ensure code passes `ruff format --check`.
+
+## 6. Tooling & Environment
+- **Dependency Management**: Use `uv` exclusively. Add dependencies with `uv add` and sync with `uv sync`. Do not use `pip`, `venv`, or `uv pip install`.
+- **Testing**: Use `pytest -q  --no-cov`.
+- **Type Checking**: Use `pyright`.
+- **Linting**: Use `ruff check --no-fix --quiet`.
+- **Formatting**: Use `ruff format --check` for checking format.

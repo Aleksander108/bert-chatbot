@@ -1,0 +1,110 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# bert-chatbot - Overview and Project Structure
+
+What This Project Does:
+**bert-chatbot** is a semantic chatbot that provides answers to user queries by finding the most semantically similar questions in an Excel database using TF-IDF vectorization and cosine similarity.
+
+High-Level Design:
+
+1. **Data Storage**
+   - Excel database with questions and answers columns
+
+2. **Vector Generation**
+   - TF-IDF vectorization converts text questions into numerical vectors
+
+3. **Similarity Matching**
+   - Cosine similarity measures determine the closest match
+
+4. **Caching System**
+   - Vector embeddings are cached to disk for faster subsequent runs
+
+## Layout and Brief Summaries
+
+    .
+    ├── .cursor/
+    │   ├── rules/
+    │   │   ├── project-rules.mdc
+    │   │   └── project-info.mdc
+    │   └── task.md
+    ├── README.md
+    ├── pyproject.toml
+    ├── bert_chatbot/
+    │   ├── __init__.py
+    │   ├── __main__.py
+    │   ├── cli.py
+    │   ├── commands/
+    │   │   ├── __init__.py
+    │   │   ├── common.py
+    │   │   ├── chat_cmd.py
+    │   ├── core/
+    │   │   ├── __init__.py
+    │   │   ├── chatbot.py
+    │   ├── py.typed
+    └── tests/
+        ├── __init__.py
+        ├── conftest.py
+        ├── helpers.py
+        ├── commands/
+        │   ├── __init__.py
+        ├── core/
+        │   ├── __init__.py
+
+- **.cursor/rules/project-rules.mdc**: Holds several code style guidelines, testing requirements, and instructions for updating documentation.  
+- **.cursor/rules/project-info.mdc**: Contains a higher-level description of the project's purpose and architecture.  
+- **.cursor/task.md**: Outlines a most recent specific task (like a feature or enhancement) that was worked upon most recently, with details on goals and design approach.
+- **README.md**: General usage and installation instructions.  
+- **pyproject.toml**: Main Python package configuration (dependencies, build settings, etc.).
+
+### `bert_chatbot/` (Main Application Code)
+
+- **\_\_init\_\_.py**: Initializes the package and exposes the version.  
+- **\_\_main\_\_.py**: Allows running the tool with `python -m bert_chatbot`.  
+- **cli.py**: Defines the command-line interface by grouping subcommands.  
+- **commands/**  
+  - **\_\_init\_\_.py**: Marks this folder as a Python package.  
+  - **common.py**: Shared CLI argument types and utilities.  
+  - **chat_cmd.py**: Implementation for the interactive chat functionality.
+- **core/**  
+  - **\_\_init\_\_.py**: Marks this subdirectory as a package.  
+  - **chatbot.py**: Core implementation of the SemanticChatBot class.
+- **py.typed**: Marker file indicating this package provides type hints.  
+
+### `tests/` (Test Suite)
+
+- **\_\_init\_\_.py**: Marks this folder as test code.  
+- **conftest.py**: Common fixtures and setup for tests.  
+- **helpers.py**: Utility functions and constants used across multiple tests.
+- **commands/**  
+  - **\_\_init\_\_.py**: Tests for command functionality.
+- **core/**  
+  - **\_\_init\_\_.py**: Tests for core functionality.
+
+## Key Dependencies
+
+- **rich**: Used for enhanced terminal output, replacing built-in print function.
+- **typer**: Used for building the command-line interface.
+- **structlog**: Used for structured logging.
+- **pandas**: Used for Excel data processing.
+- **scikit-learn**: Used for TF-IDF vectorization and cosine similarity.
+- **numpy**: Used for vector operations.
+- **openpyxl**: Used for reading Excel files.
+
+## General Note on Updates
+
+Whenever new files are added or existing files are altered, please revise this document accordingly to maintain accurate references and file descriptions.
+
+## Documentation Standards
+
+When maintaining or creating documentation:
+
+1. **Evolving Requirements**: As requirements evolve during implementation, update the appropriate sections of documentation rather than appending new information at the end.
+
+2. **Logical Structure**: Organize documentation based on logical relationships between concepts, not the chronological order in which they were developed or discovered.
+
+3. **Task Specifications**: Structure task documents to flow from requirements → design → implementation → testing → maintenance, with each component in its logical section.
+
+4. **Integrate Related Concepts**: Keep related items (like defaults and code structure) together in documentation, even if they were identified at different points in time.

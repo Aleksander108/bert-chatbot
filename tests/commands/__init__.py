@@ -1,0 +1,1 @@
+"""Command functionality tests."""
