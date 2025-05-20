@@ -6,7 +6,7 @@ alwaysApply: true
 # bert-chatbot - Overview and Project Structure
 
 What This Project Does:
-**bert-chatbot** is a semantic chatbot that provides answers to user queries by finding the most semantically similar questions in an Excel database using TF-IDF vectorization and cosine similarity.
+**bert-chatbot** is a semantic chatbot that provides answers to user queries by finding the most semantically similar questions in an Excel database using TF-IDF vectorization and cosine similarity. It now also includes a web interface built with FastAPI.
 
 High-Level Design:
 
@@ -14,13 +14,17 @@ High-Level Design:
    - Excel database with questions and answers columns
 
 2. **Vector Generation**
-   - TF-IDF vectorization converts text questions into numerical vectors
+   - Sentence Transformer models convert text questions into numerical vectors
 
 3. **Similarity Matching**
    - Cosine similarity measures determine the closest match
 
 4. **Caching System**
    - Vector embeddings are cached to disk for faster subsequent runs
+
+5. **User Interfaces**
+   - Command-Line Interface (CLI) for direct interaction and single queries.
+   - Web Interface (FastAPI) for browser-based interaction.
 
 ## Layout and Brief Summaries
 
@@ -32,6 +36,10 @@ High-Level Design:
     │   └── task.md
     ├── README.md
     ├── pyproject.toml
+    ├── main.py             # FastAPI application entry point
+    ├── templates/          # HTML templates for the web interface
+    │   ├── index.html
+    │   └── chat_response_snippet.html
     ├── bert_chatbot/
     │   ├── __init__.py
     │   ├── __main__.py
@@ -56,21 +64,25 @@ High-Level Design:
 - **.cursor/rules/project-rules.mdc**: Holds several code style guidelines, testing requirements, and instructions for updating documentation.  
 - **.cursor/rules/project-info.mdc**: Contains a higher-level description of the project's purpose and architecture.  
 - **.cursor/task.md**: Outlines a most recent specific task (like a feature or enhancement) that was worked upon most recently, with details on goals and design approach.
-- **README.md**: General usage and installation instructions.  
+- **README.md**: General usage and installation instructions, including how to run the CLI and web interface.  
 - **pyproject.toml**: Main Python package configuration (dependencies, build settings, etc.).
+- **main.py**: The main script for the FastAPI web application. It initializes the chatbot, defines API endpoints for serving the chat page and handling queries.
+- **templates/**: Directory containing Jinja2 HTML templates for the web interface.
+  - **index.html**: The main HTML page for the chat interface.
+  - **chat_response_snippet.html**: An HTML snippet used to dynamically update the chat with new messages.
 
 ### `bert_chatbot/` (Main Application Code)
 
 - **\_\_init\_\_.py**: Initializes the package and exposes the version.  
-- **\_\_main\_\_.py**: Allows running the tool with `python -m bert_chatbot`.  
+- **\_\_main\_\_.py**: Allows running the tool with `python -m bert_chatbot` (for CLI).  
 - **cli.py**: Defines the command-line interface by grouping subcommands.  
 - **commands/**  
   - **\_\_init\_\_.py**: Marks this folder as a Python package.  
   - **common.py**: Shared CLI argument types and utilities.  
-  - **chat_cmd.py**: Implementation for the interactive chat functionality.
+  - **chat_cmd.py**: Implementation for the interactive chat functionality (CLI).
 - **core/**  
   - **\_\_init\_\_.py**: Marks this subdirectory as a package.  
-  - **chatbot.py**: Core implementation of the SemanticChatBot class.
+  - **chatbot.py**: Core implementation of the `SemanticChatBot` class.
 - **py.typed**: Marker file indicating this package provides type hints.  
 
 ### `tests/` (Test Suite)
@@ -85,13 +97,19 @@ High-Level Design:
 
 ## Key Dependencies
 
-- **rich**: Used for enhanced terminal output, replacing built-in print function.
+- **rich**: Used for enhanced terminal output (CLI).
 - **typer**: Used for building the command-line interface.
 - **structlog**: Used for structured logging.
 - **pandas**: Used for Excel data processing.
-- **scikit-learn**: Used for TF-IDF vectorization and cosine similarity.
+- **scikit-learn**: Used for cosine similarity.
 - **numpy**: Used for vector operations.
 - **openpyxl**: Used for reading Excel files.
+- **sentence-transformers**: Used for generating sentence embeddings.
+- **torch**: Dependency for sentence-transformers.
+- **fastapi**: Used for building the web API.
+- **uvicorn**: Used as the ASGI server to run the FastAPI application.
+- **jinja2**: Used for HTML templating in the web interface.
+- **python-multipart**: Used for parsing form data in FastAPI.
 
 ## General Note on Updates
 

@@ -5,9 +5,9 @@ from collections.abc import Generator
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pandas as pd
 import pytest
-from sklearn.feature_extraction.text import TfidfVectorizer
 
 from bert_chatbot.core.chatbot import SemanticChatBot
 
@@ -22,55 +22,42 @@ def sample_data() -> dict[str, list[str]]:
 
 
 @pytest.fixture
-def sample_database_path(sample_data: dict[str, list[str]]) -> Generator[str]:
-    """Create a temporary sample database for testing."""
-    # Create a temporary Excel file with sample data
-    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as temp_file:
-        temp_path = temp_file.name
-
+def sample_database_path() -> Generator[str, None, None]:
+    """Generate a temporary Excel file for testing."""
+    temp_file = tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False)
+    temp_path = temp_file.name
+    temp_file.close()
+    
+    # Sample test data
+    sample_data = {
+        "вопрос": ["How are you?", "What is your name?", "What is the weather like today?"],
+        "ответ": ["I am fine, thank you!", "My name is BERT ChatBot.", "I cannot check the weather."],
+    }
+    
     # Write to Excel file
-    pd.DataFrame(sample_data).to_excel(temp_path, index=False)  # type: ignore
-
+    pd.DataFrame(sample_data).to_excel(temp_path, index=False)  # type: ignore[call-overload]
+    
     try:
         yield temp_path
     finally:
-        # Clean up the temporary file
-        temp_file_path = Path(temp_path)
-        if temp_file_path.exists():
-            temp_file_path.unlink()
+        Path(temp_path).unlink(missing_ok=True)
 
 
 @pytest.fixture
-def mock_vectorizer() -> MagicMock:
-    """Create a mock TF-IDF vectorizer for testing."""
-    mock = MagicMock(spec=TfidfVectorizer)
-    # Configure the mock to return simple vectors
-    mock.fit_transform.return_value = "mock_vectors"
-    mock.transform.return_value = "mock_query_vector"
-    return mock
-
-
-@pytest.fixture
-def mock_cosine_similarity() -> MagicMock:
-    """Create a mock for cosine_similarity function."""
-    mock = MagicMock()
-    # Return similarity scores that will result in the first question being the best match
-    mock.return_value = [[0.95, 0.5, 0.3]]
-    return mock
-
-
-@pytest.fixture
-def sample_chatbot(
-    sample_database_path: str, mock_vectorizer: MagicMock, mock_cosine_similarity: MagicMock
-) -> SemanticChatBot:
-    """Create a sample chatbot instance for testing with mocked components."""
-    with (
-        patch("bert_chatbot.core.chatbot.TfidfVectorizer", return_value=mock_vectorizer),
-        patch("bert_chatbot.core.chatbot.cosine_similarity", mock_cosine_similarity),
-        patch("bert_chatbot.core.chatbot.pickle.dump"),
-    ):  # Mock pickle to avoid writing to disk
-        return SemanticChatBot(
+def sample_chatbot(sample_database_path: str) -> SemanticChatBot:
+    """Create a SemanticChatBot instance with test data and mocked components."""
+    # Create mock for SentenceTransformer and its methods
+    with patch("bert_chatbot.core.chatbot.SentenceTransformer") as mock_transformer:
+        # Configure the mock encode method
+        mock_encode = MagicMock()
+        mock_encode.return_value = np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]])
+        mock_transformer.return_value.encode = mock_encode
+        
+        # Create the chatbot with the mock and test data
+        chatbot = SemanticChatBot(
             database_path=sample_database_path,
-            similarity_threshold=0.3,
-            cache_file=":memory:",  # In-memory cache for tests
+            similarity_threshold=0.6,
+            keyword_match_threshold=0.3
         )
+        
+        return chatbot

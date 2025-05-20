@@ -19,3 +19,12 @@ dist/*.whl
 # Vector database
 vector_cache.pkl
 
+# macOS specific
+.DS_Store
+
+# Installers
+Mambaforge-MacOSX-x86_64.sh
+
+# Python version file (if local)
+.python-version
+

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чатбот Нестарение AI</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f6f8;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 700px;
+            margin-top: 30px;
+            margin-bottom: 30px;
+            display: flex;
+            flex-direction: column;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 25px;
+            font-size: 1.8em;
+        }
+        #chat-area {
+            border: 1px solid #e0e0e0;
+            padding: 15px;
+            height: 400px; /* Fixed height */
+            overflow-y: auto; /* Enable scrolling */
+            margin-bottom: 20px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            display: flex;
+            flex-direction: column-reverse; /* Newest messages at the bottom, scroll to view older */
+        }
+        .chat-messages-wrapper {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end; /* Align items to the bottom */
+        }
+        .message {
+            margin-bottom: 12px;
+            padding: 10px 15px;
+            border-radius: 18px;
+            line-height: 1.5;
+            max-width: 85%;
+            word-wrap: break-word;
+        }
+        .user-message {
+            background-color: #007bff;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
+        }
+        .bot-message {
+            background-color: #e9ecef;
+            color: #333;
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+        }
+        .bot-message strong {
+            color: #555;
+        }
+        .bot-message .source-info {
+            font-size: 0.8em;
+            color: #6c757d;
+            margin-top: 5px;
+            display: block;
+        }
+        .bot-message .matched-q {
+            font-size: 0.85em;
+            color: #4a5568;
+            margin-top: 3px;
+            font-style: italic;
+            border-left: 2px solid #007bff;
+            padding-left: 8px;
+        }
+        form {
+            display: flex;
+            gap: 10px;
+            margin-top: auto; /* Pushes form to the bottom if container has extra space */
+        }
+        input[type="text"] {
+            flex-grow: 1;
+            padding: 12px 15px;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            font-size: 1em;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input[type="text"]:focus {
+            border-color: #007bff;
+        }
+        button {
+            padding: 12px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.2s;
+            white-space: nowrap; /* Prevent button text from wrapping */
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            padding: 10px;
+            font-size: 0.9em;
+            color: #777;
+        }
+
+        /* Spinner for loading state */
+        .spinner {
+            border: 3px solid #f3f3f3; /* Light grey */
+            border-top: 3px solid #007bff; /* Blue */
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            align-self: center; /* Center spinner */
+            margin: 10px 0;
+            display: none; /* Hidden by default */
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Я - попытка улучшить чат-бот "Нестарение"</h1>
+
+        <div id="chat-area">
+            <div class="chat-messages-wrapper">
+                <!-- Chat messages will be appended here by JavaScript -->
+            </div>
+        </div>
+        <div id="loading-spinner" class="spinner"></div>
+
+        <form id="chat-form">
+            <input type="text" id="user-query" name="user_query" placeholder="Ваш вопрос..." autocomplete="off" required>
+            <button type="submit">Хочу ответ</button>
+        </form>
+    </div>
+
+    <footer>
+        Bert Chatbot Interface
+    </footer>
+
+    <script>
+        const chatForm = document.getElementById('chat-form');
+        const userQueryInput = document.getElementById('user-query');
+        const chatArea = document.getElementById('chat-area');
+        const messagesWrapper = chatArea.querySelector('.chat-messages-wrapper');
+        const loadingSpinner = document.getElementById('loading-spinner');
+
+        chatForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const query = userQueryInput.value.trim();
+            if (!query) return;
+
+            // Display user's message immediately
+            appendMessage(query, 'user-message');
+            userQueryInput.value = ''; // Clear input field
+            userQueryInput.focus(); // Keep focus on input
+
+            // Show spinner
+            loadingSpinner.style.display = 'block';
+
+            try {
+                const formData = new FormData();
+                formData.append('user_query', query);
+
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const htmlSnippet = await response.text();
+                    appendHtmlSnippet(htmlSnippet);
+                } else {
+                    const errorText = await response.text();
+                    appendMessage(`Ошибка сервера: ${response.status} ${errorText || 'Не удалось получить ответ.'}`, 'bot-message error');
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                appendMessage(`Ошибка сети: ${error.message || 'Не удалось связаться с сервером.'}`, 'bot-message error');
+            } finally {
+                // Hide spinner
+                loadingSpinner.style.display = 'none';
+                scrollToBottom();
+            }
+        });
+
+        function appendMessage(text, className) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', className);
+            messageDiv.textContent = text; // Use textContent for simple text to prevent XSS
+            messagesWrapper.appendChild(messageDiv); // Add to wrapper
+            scrollToBottom();
+        }
+
+        function appendHtmlSnippet(html) {
+            // Create a temporary div to parse the HTML string
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            
+            // Append all child elements of the parsed HTML to the messages wrapper
+            while (tempDiv.firstChild) {
+                messagesWrapper.appendChild(tempDiv.firstChild);
+            }
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            // chatArea.scrollTop = chatArea.scrollHeight; // This would scroll to the very bottom
+            // Since flex-direction is column-reverse, new content pushes old content up.
+            // We want to ensure the input field is always visible, and the latest message is at the bottom of the viewport.
+            // The default behavior of column-reverse in overflow-y: auto should handle this well.
+            // If chatArea is not full, it stays at bottom. If it is full, new messages appear at bottom.
+        }
+        
+        // Initial focus on input
+        userQueryInput.focus();
+
+    </script>
+</body>
+</html> 

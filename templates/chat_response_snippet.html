@@ -1,0 +1,28 @@
+{# This snippet now only contains the bot's response #}
+{# The user's query is already displayed by client-side JavaScript #}
+
+<div class="message bot-message">
+    {# Заменяем переносы строк на <br> для корректного отображения в HTML #}
+    <p>{{ bot_answer | replace("\n", "<br>") | safe }}</p>
+    
+    {# Если есть список релевантных вопросов (обычно при OOV), показываем его #}
+    {% if relevant_questions_list %}
+        <div class="relevant-questions">
+            <p>Найденные вопросы по теме:</p>
+            <ul>
+                {% for rel_q in relevant_questions_list %}
+                    <li>{{ rel_q }}</li>
+                {% endfor %}
+            </ul>
+            <p><small>Вы можете уточнить ваш запрос, выбрав один из этих вопросов.</small></p>
+        </div>
+    {# Иначе, если это был прямой ответ, но есть связанный вопрос из БД (например, при низкой уверенности или просто для информации) #}
+    {% elif matched_question %}
+        <p class="matched-q">Связанный вопрос из БД (схожесть: {{ '%.2f' % score }}): {{ matched_question }}</p>
+    {% endif %}
+
+    {% if source %}
+        <span class="source-info">Источник: {{ source }}</span>
+    {% endif %}
+    <!-- <p><small>Match type: {{ match_type }} (User: {{ user_query }})</small></p> --> {# user_query is still in context if needed #}
+</div> 

@@ -66,6 +66,30 @@ export BERT_CHATBOT_DATABASE=/path/to/database.xlsx
 bert-chatbot chat ask "What is the capital of France?"
 ```
 
+### Web Interface (FastAPI)
+
+To use the web interface:
+
+1.  **Install dependencies** (if you haven't already, ensure `uv` syncs with `pyproject.toml`):
+    ```bash
+    uv sync
+    ```
+
+2.  **Run the FastAPI application** from the project root directory:
+    ```bash
+    python main.py
+    ```
+    Alternatively, using uvicorn directly (useful for development with auto-reload):
+    ```bash
+    uvicorn main:app --reload
+    ```
+
+3.  **Open your browser** and go to:
+    ```
+    http://127.0.0.1:8000
+    ```
+    The `main.py` script will attempt to load `test_data_production.xlsx` from the root directory by default. You can change the `DATABASE_PATH` variable in `main.py` if your data file is located elsewhere or named differently.
+
 ### Commands in Interactive Mode
 
 Once in the interactive chat, you can use these commands:
