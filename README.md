@@ -1,3 +1,6 @@
+Этот бот - попытка улучшения релевантности ответов Nestarenie Expert Chat Bot (@https://app.nestarenie.expert/)
+This bot is an attempt to improve the relevance of responses from the Nestarenie Expert Chat Bot (@https://app.nestarenie.expert/)
+
 # BERT Semantic ChatBot / Семантический Чат-Бот на BERT
 
 ---
