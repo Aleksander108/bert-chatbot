@@ -245,14 +245,13 @@ class SemanticChatBot:
         
         # print(f"DEBUG __init__: Извлечено {len(self.questions)} вопросов, {len(self.answers)} ответов, {len(self.sources)} источников.")
 
-        self._build_db_vocabulary() # Build vocabulary from questions and answers
-
         embedding_dim_val_init = self.model.get_sentence_embedding_dimension()
         embedding_dim_init: int = embedding_dim_val_init if isinstance(embedding_dim_val_init, int) else 384
         # print(f"DEBUG __init__: Определена размерность векторов: {embedding_dim_init}")
         
         self.question_vectors = np.array([], dtype=np.float32).reshape(0, embedding_dim_init)
         self._load_or_generate_vectors()
+        self._build_db_vocabulary() # ADD THIS LINE: Build vocabulary after vectors and questions/answers are finalized
         
         # REMOVED question_keywords and question_topics
         # self.question_keywords = [self._extract_keywords(q) for q in self.questions]
@@ -279,16 +278,17 @@ class SemanticChatBot:
         return words
 
     def _build_db_vocabulary(self) -> None:
-        """Builds a vocabulary from all questions and answers in the database."""
+        """Builds a vocabulary from all questions in the database."""
         # print("DEBUG _build_db_vocabulary: Начало построения словаря базы данных.")
         vocab_set: Set[str] = set()
         for q_text in self.questions:
             vocab_set.update(self._tokenize_text(q_text))
-        for a_text in self.answers:
-            vocab_set.update(self._tokenize_text(a_text))
+        # Removed: Looping through self.answers to build vocabulary
+        # for a_text in self.answers:
+        #     vocab_set.update(self._tokenize_text(a_text))
         
         self.db_vocabulary = vocab_set - self.RUSSIAN_STOPWORDS # Remove stopwords from final vocab
-        # print(f"DEBUG _build_db_vocabulary: Словарь построен. Уникальных слов (без стоп-слов): {len(self.db_vocabulary)}")
+        # print(f"DEBUG _build_db_vocabulary: Словарь построен. Уникальных слов (из ВОПРОСОВ, без стоп-слов): {len(self.db_vocabulary)}")
         if len(self.db_vocabulary) < 50: # Print some examples if vocab is very small
              # print(f"DEBUG _build_db_vocabulary: Пример слов из словаря: {list(self.db_vocabulary)[:20]}")
              pass
@@ -489,40 +489,19 @@ class SemanticChatBot:
                         # print(f"DEBUG find_answer: Вопрос ID {i} ('{self.questions[i][:50]}...') НЕ содержит '{critical_keyword_statin}'. Схожесть понижена с {_original_score:.4f} до {similarities[i]:.4f}")
             # print(f"DEBUG find_answer: Схожести (после переранжирования для '{critical_keyword_statin}'). Макс: {np.max(similarities):.4f}, Мин: {np.min(similarities):.4f}, Среднее: {np.mean(similarities):.4f}")
         
-        print(f"[WEB_DEBUG] find_answer received query: '{query}'") # Web debug
+        # print(f"[WEB_DEBUG] find_answer received query: '{query}'") # Web debug
         tokenized_query = self._tokenize_text(query)
-        print(f"[WEB_DEBUG] tokenized_query: {tokenized_query}") # Web debug
-        print(f"[WEB_DEBUG] Size of db_vocabulary: {len(self.db_vocabulary)}") # Web debug
-        if self.db_vocabulary:
-            print(f"[WEB_DEBUG] Sample of db_vocabulary: {list(self.db_vocabulary)[:10]}") # Web debug
+        # print(f"[WEB_DEBUG] tokenized_query: {tokenized_query}") # Web debug
+        # print(f"[WEB_DEBUG] Size of db_vocabulary: {len(self.db_vocabulary)}") # Web debug
+        # if self.db_vocabulary:
+            # print(f"[WEB_DEBUG] Sample of db_vocabulary: {list(self.db_vocabulary)[:10]}") # Web debug
         
         oov_query_words = {
             word for word in tokenized_query 
             if word not in self.db_vocabulary and word not in self.RUSSIAN_STOPWORDS
         }
-        print(f"[WEB_DEBUG] oov_query_words: {oov_query_words}") # Web debug
+        # print(f"[WEB_DEBUG] oov_query_words: {oov_query_words}") # Web debug
 
-        if oov_query_words:
-            # print(f"DEBUG find_answer: Обнаружены слова вне словаря БД (OOV): {oov_query_words}")
-            # Check if ALL words in the tokenized query are OOV
-            if len(tokenized_query) > 0 and len(oov_query_words) == len(tokenized_query):
-                # print(f"DEBUG find_answer: Все слова в запросе '{query}' являются OOV. Возвращаем 'информация отсутствует'.")
-                response_data = {
-                    "answer": f"По вашему запросу ('{query}') информация в базе отсутствует. Пожалуйста, переформулируйте.",
-                    "match_type": "all_oov",
-                    "above_threshold": False,
-                    "score": 0.0, # No meaningful score
-                    "clarification_prefix": "", # No clarification needed, direct answer
-                    "relevant_questions_list": [],
-                    "matched_question": ""
-                }
-                # print(f"DEBUG find_answer: Итоговые возвращаемые данные (all_oov): {response_data}")
-                return response_data
-            # Otherwise, proceed with partial OOV logic
-            pass
-
-        top_indices_for_list = np.argsort(similarities)[-10:][::-1] # Get more for potential list
-        
         # Prepare default response structure
         response_data: dict[str, Any] = {
             "answer": "", # Will be populated or changed based on logic
@@ -532,86 +511,173 @@ class SemanticChatBot:
             "above_threshold": False,
             "top_matches": [], # For detailed debug output in CLI
             "match_type": "no_match", # Default, will be updated
-            "unmatched_query_terms": list(oov_query_words),
+            "unmatched_query_terms": list(oov_query_words), # Initialize with current OOV words
             "clarification_prefix": "",
             "relevant_questions_list": [] # New field
         }
 
+        # Early exit if ALL query terms are OOV (and not stopwords)
+        tokenized_query_significant = [word for word in tokenized_query if word not in self.RUSSIAN_STOPWORDS]
+        if tokenized_query_significant and all(word in oov_query_words for word in tokenized_query_significant):
+            # print(f"DEBUG find_answer: Все значимые слова в запросе '{query}' являются OOV. Возвращаем 'информация отсутствует'.")
+            response_data["answer"] = f"По вашему запросу ('{query}') информация в базе отсутствует, так как все ключевые слова не найдены в словаре. Пожалуйста, переформулируйте."
+            response_data["match_type"] = "all_oov"
+            response_data["above_threshold"] = False
+            response_data["score"] = 0.0
+            # print(f"DEBUG find_answer: Итоговые возвращаемые данные (all_oov): {response_data}")
+            return response_data
+
+        top_indices_for_list = np.argsort(similarities)[-10:][::-1] # Get more for potential list
+        
         # Populate top_matches for debugging (always, based on current similarities)
+        # This part can be moved after OOV logic if we don't want to show matches if OOV terms dominate.
+        # For now, keeping it here to see what initial matches look like.
         for i in top_indices_for_list:
             if i < len(self.questions) and similarities[i] > 0.1: # Basic filter for debug list
                 response_data["top_matches"].append({
                     "question": self.questions[i],
                     "score": float(similarities[i]),
-                    "answer": self.answers[i], # Keep answer here for debug view
+                    "answer": self.answers[i], 
                     "source": self.sources[i] if i < len(self.sources) else ""
                 })
-        # Limit debug top_matches to 5 for cleaner logs, even if we fetched more
         response_data["top_matches"] = response_data["top_matches"][:5]
-        # print(f"DEBUG find_answer: Top 5 совпадений (для отладки): {response_data['top_matches']}")
-
+        # print(f"DEBUG find_answer: Top 5 совпадений (для отладки, до OOV-фильтрации): {response_data['top_matches']}")
 
         best_match_idx = np.argmax(similarities)
         highest_similarity = float(similarities[best_match_idx])
         # print(f"DEBUG find_answer: Лучшее совпадение (индекс): {best_match_idx}, Схожесть (до применения OOV логики): {highest_similarity:.4f}")
 
         if oov_query_words:
-            # OOV words are present. We need to decide if we show related questions or say "no info".
+            # print(f"DEBUG find_answer: Обнаружены слова вне словаря БД (OOV): {oov_query_words}")
             response_data["clarification_prefix"] = f"По термину(ам) '{', '.join(oov_query_words)}' информация в базе отсутствует."
             
-            # Check if any remaining part of the query (that is not OOV) has relevant matches
-            # For this, we rely on the current `similarities` which were calculated on the full query vector.
-            # If the model gives some score to questions even with OOV words, it means it found some semantic signal.
-            
-            tokenized_query_set = set(tokenized_query) # For faster lookups
+            tokenized_query_set = set(tokenized_query) 
             known_query_words = tokenized_query_set - oov_query_words
             # print(f"DEBUG find_answer (OOV case): Known query words: {known_query_words}")
 
             relevant_questions_for_oov_case: List[str] = []
-            for i in top_indices_for_list: # Iterate through top N (e.g., top 10)
-                if i < len(self.questions) and similarities[i] >= self.similarity_threshold / 2: # Lower threshold for listing questions
-                    db_question_text: str = cast(str, self.questions[i]) # Explicitly cast here
-                    # print(f"DEBUG find_answer (OOV case): Checking DB question '{db_question_text[:50]}...' with score {similarities[i]:.4f}")
-                    # Check if this DB question contains any of the KNOWN words from the query
-                    tokenized_db_question = self._tokenize_text(db_question_text)
-                    if not known_query_words: # If all query words were OOV (should be caught by all_oov earlier, but defensive)
-                        # print(f"DEBUG find_answer (OOV case): No known_query_words, adding '{db_question_text[:50]}...' based on similarity alone.")
-                        relevant_questions_for_oov_case.append(db_question_text)
-                    elif any(known_word in tokenized_db_question for known_word in known_query_words):
-                        # print(f"DEBUG find_answer (OOV case): DB question '{db_question_text[:50]}...' contains a known query word. Adding.")
-                        relevant_questions_for_oov_case.append(db_question_text)
+            
+            # If there are known words, we search for questions relevant to THEM.
+            # The similarities were calculated for the FULL query. This is problematic if OOV words polluted the vector.
+            # A better approach for OOV cases:
+            # 1. Inform about OOV.
+            # 2. If there are known words, perform a NEW search/ranking based ONLY on known words.
+            
+            if known_query_words:
+                # print(f"DEBUG find_answer (OOV case): Есть известные слова: {known_query_words}. Ищем релевантные вопросы по ним.")
+                
+                # Perform a new, clean search based only on known_query_words
+                # Preserve order of known words from the original tokenized_query
+                clean_query_tokens_ordered = [
+                    word for word in tokenized_query 
+                    if word not in oov_query_words and word not in self.RUSSIAN_STOPWORDS
+                ]
+                clean_query_text = " ".join(clean_query_tokens_ordered)
+                
+                # print(f"DEBUG find_answer (OOV case): Performing clean search for: '{clean_query_text}'")
+                
+                if not clean_query_text.strip(): # If only stopwords were known, or known_query_words was empty
+                    # print("DEBUG find_answer (OOV case): Clean query text is empty. No relevant questions to find.")
+                    pass # Will fall through to "oov_no_related_questions"
+                else:
+                    clean_query_vector = self.model.encode(clean_query_text, convert_to_numpy=True) # type: ignore[no-untyped-call]
+                    clean_query_vector = clean_query_vector.astype(np.float32).reshape(1, -1) # type: ignore[no-any-return, union-attr]
+                    clean_similarities = cosine_similarity(clean_query_vector, self.question_vectors)[0]
+                    
+                    max_clean_similarity = np.max(clean_similarities) if clean_similarities.size > 0 else 0.0
+                    MIN_RELEVANCE_FOR_CLEAN_SUGGESTIONS = 0.7 # Changed threshold to 0.7 as per user request
+
+                    if max_clean_similarity < MIN_RELEVANCE_FOR_CLEAN_SUGGESTIONS:
+                        # print(f"DEBUG find_answer (OOV - clean search): Max clean similarity {max_clean_similarity:.2f} is below threshold {MIN_RELEVANCE_FOR_CLEAN_SUGGESTIONS}. No suggestions will be made for known part.")
+                        # relevant_questions_for_oov_case will remain empty, leading to "oov_no_related_questions" path
+                        pass
+                    else:
+                        # Re-apply statin re-ranking if statin is in known words for the clean search
+                        if critical_keyword_statin in known_query_words:
+                            # print(f"DEBUG find_answer (OOV - clean search): Re-ranking for '{critical_keyword_statin}' in clean search.")
+                            for i in range(len(self.questions)):
+                                if critical_keyword_statin not in self.questions[i].lower():
+                                    clean_similarities[i] *= penalty_factor # Use the same penalty_factor
+
+                        clean_top_indices = np.argsort(clean_similarities)[-10:][::-1] # Get top 10 for the clean search
+
+                        for i in clean_top_indices: 
+                            # Use a threshold for relevance for these cleaned-up suggestions
+                            # This threshold should ensure suggestions are genuinely related to the clean_query_text
+                            if i < len(self.questions) and clean_similarities[i] >= MIN_RELEVANCE_FOR_CLEAN_SUGGESTIONS: 
+                                db_question_text: str = cast(str, self.questions[i])
+                                relevant_questions_for_oov_case.append(db_question_text)
+                                # print(f"DEBUG find_answer (OOV case - clean search): Добавлен вопрос '{db_question_text[:50]}...' (схожесть {clean_similarities[i]:.2f})")
             
             if relevant_questions_for_oov_case:
                 response_data["match_type"] = "oov_with_related_questions"
-                response_data["relevant_questions_list"] = relevant_questions_for_oov_case[:5] # Show top 5 relevant questions
-                # Формируем составной ответ
+                response_data["relevant_questions_list"] = relevant_questions_for_oov_case[:5] 
                 main_answer_part = "По остальной части вашего запроса в базе найдены следующие вопросы:"
-                response_data["answer"] = f"{response_data['clarification_prefix']}\n\n{main_answer_part}" if response_data['clarification_prefix'] else main_answer_part
-                response_data["above_threshold"] = False # Not a direct answer to the full query
-                response_data["score"] = highest_similarity # Still report the raw best score for context
-                response_data["matched_question"] = self.questions[best_match_idx] if highest_similarity > 0 else "" # And the raw best matched Q
-            else:
+                response_data["answer"] = f"{response_data['clarification_prefix']}\n\n{main_answer_part}"
+                response_data["above_threshold"] = False 
+                response_data["score"] = 0.0 # No direct answer to the original OOV query
+                response_data["matched_question"] = "" # No direct matched question for OOV query
+                # print(f"DEBUG find_answer (OOV case): Сформирован ответ с релевантными вопросами. {response_data}")
+            else: # OOV words present, but no relevant questions found for the known part (or no known part)
                 response_data["match_type"] = "oov_no_related_questions"
                 response_data["answer"] = f"{response_data['clarification_prefix']} По остальной части запроса также не найдено достаточно релевантной информации."
                 response_data["above_threshold"] = False
-                response_data["score"] = highest_similarity
+                response_data["score"] = 0.0
+                response_data["matched_question"] = ""
+                # print(f"DEBUG find_answer (OOV case): Нет релевантных вопросов для известных слов. {response_data}")
+            return response_data # IMPORTANT: Return here after handling OOV cases
         
-        elif highest_similarity >= self.similarity_threshold:
-            # No OOV words, and a direct match found
-            response_data["answer"] = self.answers[best_match_idx]
-            response_data["source"] = self.sources[best_match_idx] if best_match_idx < len(self.sources) else ""
-            response_data["matched_question"] = self.questions[best_match_idx]
-            response_data["score"] = highest_similarity
-            response_data["above_threshold"] = True
-            response_data["match_type"] = "full_match"
-            # print(f"DEBUG find_answer: Прямое совпадение выше порога. Ответ: '{response_data['answer'][:50]}...'")
+        # This block is reached ONLY IF there were NO OOV words
+        # print(f"DEBUG find_answer: Нет OOV слов. Продолжаем с обычной логикой совпадения.")
+        if highest_similarity >= self.similarity_threshold:
+            # Potential full match, but verify term coverage
+            matched_db_question_text = self.questions[best_match_idx]
+            
+            tokenized_user_query = self._tokenize_text(query)
+            significant_user_query_tokens = {
+                token for token in tokenized_user_query if token not in self.RUSSIAN_STOPWORDS
+            }
+            
+            # Tokenize the matched DB question to check for term presence
+            # We use the full set of tokens from the DB question for the .issubset check
+            tokenized_db_question_set = set(self._tokenize_text(matched_db_question_text))
+
+            # Check if all significant user query tokens are present in the tokens of the matched DB question
+            all_user_terms_in_matched_question = significant_user_query_tokens.issubset(tokenized_db_question_set)
+
+            if all_user_terms_in_matched_question:
+                # print(f"DEBUG find_answer: Full match, all significant query terms ('{significant_user_query_tokens}') found in DB question tokens ('{tokenized_db_question_set}').")
+                response_data["answer"] = self.answers[best_match_idx]
+                response_data["source"] = self.sources[best_match_idx] if best_match_idx < len(self.sources) else ""
+                response_data["matched_question"] = matched_db_question_text
+                response_data["score"] = highest_similarity
+                response_data["above_threshold"] = True
+                response_data["match_type"] = "full_match"
+            else:
+                # print(f"DEBUG find_answer: High similarity ({highest_similarity:.2f}), but not all query terms covered. Missing: {significant_user_query_tokens - tokenized_db_question_set}")
+                response_data["answer"] = "По вашему запросу прямого ответа нет. Возможно, вас заинтересуют следующие вопросы по схожим темам:"
+                response_data["source"] = "" 
+                response_data["score"] = highest_similarity 
+                response_data["above_threshold"] = False 
+                response_data["match_type"] = "partial_term_coverage_match"
+                
+                response_data["relevant_questions_list"] = [
+                    self.questions[i] for i in top_indices_for_list 
+                    if i < len(self.questions) and similarities[i] >= self.similarity_threshold * 0.7
+                ][:5]
+                
+                if not response_data["relevant_questions_list"]:
+                    # Fallback if no suggestions meet the criteria, even though similarity was high initially
+                    response_data["answer"] = self.FAIL_RESPONSES[0]
+                    response_data["match_type"] = "low_confidence_no_oov" # Or a more specific type
+                    response_data["matched_question"] = "" # Clear matched question as it wasn't a true fit
+                    response_data["score"] = highest_similarity # Still show the best score found before failing here
         
         else:
-            # No OOV words, but no strong match found
-            response_data["answer"] = self.FAIL_RESPONSES[0] # Fixed fail response
-            response_data["score"] = highest_similarity # Best of the low scores
-            # response_data["matched_question"] still holds the question with highest_similarity if any
-            if highest_similarity > 0.01 : # if there was at least some match
+            # No OOV words, but no strong match found (highest_similarity < self.similarity_threshold)
+            response_data["answer"] = self.FAIL_RESPONSES[0] 
+            response_data["score"] = highest_similarity 
+            if highest_similarity > 0.01 : 
                  response_data["matched_question"] = self.questions[best_match_idx]
             response_data["above_threshold"] = False
             response_data["match_type"] = "low_confidence_no_oov"
