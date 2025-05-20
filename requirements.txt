@@ -3,7 +3,6 @@ anyio==4.9.0
 ast-grep-py==0.30.1
 attrs==25.3.0
 auto-typing-final==0.7.2
--e file:///Users/mac/dev/bert-chatbot
 blis==1.2.1
 catalogue==2.0.10
 cattrs==24.1.3
